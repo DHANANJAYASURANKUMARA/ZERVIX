@@ -211,7 +211,7 @@ function InboxContent() {
                                                         <button
                                                             onClick={() => alert(`Redirecting to checkout for Offer ${offerData.id} ($${offerData.price})`)} // Mock checkout redirect
                                                             className="btn-primary"
-                                                            style={{ width: '100%', padding: '10px', fontSize: '13px', background: '#fbbf24', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                                                            style={{ width: '100%', padding: '10px', fontSize: '13px', background: 'var(--aurora-cyan)', color: 'var(--bg-deep)', fontWeight: 'bold', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
                                                         >
                                                             Accept Offer
                                                         </button>

@@ -5,12 +5,12 @@ export default function LandingPage() {
   const router = useRouter();
 
   const categories = [
-    { title: "Design", icon: "🎨", desc: "Branding & UI", color: "#6366f1" },
-    { title: "Development", icon: "💻", desc: "Web & Mobile", color: "#a855f7" },
-    { title: "Animation", icon: "🎬", desc: "Motion Graphics", color: "#ec4899" },
-    { title: "Writing", icon: "✍️", desc: "Copy & Translation", color: "#fbbf24" },
-    { title: "Music", icon: "🎸", desc: "Audio & Voice", color: "#34d399" },
-    { title: "AI Services", icon: "🤖", desc: "Prompts & Models", color: "#06b6d4" },
+    { title: "Design", icon: "🎨", desc: "Branding & UI", color: "var(--aurora-primary)" },
+    { title: "Development", icon: "💻", desc: "Web & Mobile", color: "var(--aurora-deep)" },
+    { title: "Animation", icon: "🎬", desc: "Motion Graphics", color: "var(--aurora-secondary)" },
+    { title: "Writing", icon: "✍️", desc: "Copy & Translation", color: "var(--aurora-tertiary)" },
+    { title: "Music", icon: "🎸", desc: "Audio & Voice", color: "var(--aurora-cyan)" },
+    { title: "AI Services", icon: "🤖", desc: "Prompts & Models", color: "var(--aurora-primary)" },
   ];
 
   const popularGigs = [
@@ -31,12 +31,12 @@ export default function LandingPage() {
         {/* Abstract Floating Shapes (Decorations) */}
         <div className="floating" style={{
           position: 'absolute', top: '20%', left: '10%', width: '300px', height: '300px',
-          background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, var(--aurora-glow) 0%, transparent 70%)',
           borderRadius: '50%', filter: 'blur(40px)', zIndex: -1, animationDelay: '0s'
         }} />
         <div className="floating" style={{
           position: 'absolute', bottom: '20%', right: '10%', width: '400px', height: '400px',
-          background: 'radial-gradient(circle, rgba(236,72,153,0.15) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(1, 203, 174, 0.15) 0%, transparent 70%)',
           borderRadius: '50%', filter: 'blur(50px)', zIndex: -1, animationDelay: '2s'
         }} />
 
@@ -79,18 +79,25 @@ export default function LandingPage() {
             Search
           </button>
         </div>
+      </section>
 
-        {/* Trust Badges */}
-        <div style={{ marginTop: '80px', opacity: 0.6, fontSize: '14px', color: 'var(--text-dim)', letterSpacing: '2px', textTransform: 'uppercase' }}>
-          Trusted by 10,000+ Innovators
+      {/* TRUSTED BY TICKER */}
+      <section style={{ width: '100%', padding: '40px 0', borderBottom: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.01)' }}>
+        <p style={{ textAlign: 'center', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '2px', color: 'var(--text-dim)', marginBottom: '20px' }}>Trusted by industry leaders</p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '60px', opacity: 0.5, flexWrap: 'wrap', padding: '0 20px' }}>
+          {['Acme Corp', 'GlobalTech', 'Nebula', 'Velocity', 'Trio', 'FoxRun'].map(name => (
+            <div key={name} style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-muted)' }}>{name}</div>
+          ))}
         </div>
       </section>
 
-
       {/* CATEGORIES GRID */}
-      <section style={{ width: '100%', maxWidth: '1400px', padding: '50px 20px 100px' }}>
+      <section style={{ width: '100%', maxWidth: '1400px', padding: '100px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: '40px' }}>
-          <h2 style={{ fontSize: '32px', fontWeight: '700' }}>Explore <span className="aurora-text">Possibilities</span></h2>
+          <div>
+            <h2 style={{ fontSize: '36px', fontWeight: '800', lineHeight: '1.2' }}>Explore <span className="aurora-text">Possibilities</span></h2>
+            <p style={{ color: 'var(--text-muted)', marginTop: '10px' }}>Find the perfect talent for any project.</p>
+          </div>
           <button className="btn-secondary">View All Categories</button>
         </div>
 
@@ -103,18 +110,18 @@ export default function LandingPage() {
               className="glass-card"
               style={{
                 padding: '30px 20px', textAlign: 'center', cursor: 'pointer',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px'
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px'
               }}>
               <div style={{
-                width: '70px', height: '70px', borderRadius: '50%',
-                background: `linear-gradient(135deg, ${cat.color}22, transparent)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px',
-                border: `1px solid ${cat.color}44`, boxShadow: `0 10px 30px ${cat.color}22`
+                width: '60px', height: '60px', borderRadius: '16px',
+                background: 'rgba(37, 99, 235, 0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px',
+                color: 'var(--aurora-primary)'
               }}>
                 {cat.icon}
               </div>
               <div>
-                <div style={{ fontWeight: '700', fontSize: '18px', marginBottom: '5px' }}>{cat.title}</div>
+                <div style={{ fontWeight: '600', fontSize: '16px', marginBottom: '5px' }}>{cat.title}</div>
                 <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{cat.desc}</div>
               </div>
             </div>
@@ -122,17 +129,40 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* FEATURES / WHY CHOOSE US */}
+      <section style={{ width: '100%', padding: '100px 20px', background: 'var(--bg-accent)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '60px' }}>Why <span className="aurora-text">Zervix?</span></h2>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px' }}>
+            {[
+              { title: 'Vetted Talent', desc: 'Access the top 1% of global freelancers, verified for quality and reliability.', icon: '💎' },
+              { title: 'Secure Payments', desc: 'Your money is held safely in escrow until you approve the final delivery.', icon: '🔒' },
+              { title: '24/7 Support', desc: 'Our dedicated team is here to help you solve any issues, anytime.', icon: '🎧' },
+            ].map((feat, i) => (
+              <div key={i} style={{ textAlign: 'left', padding: '30px', background: 'var(--bg-deep)', borderRadius: '20px', border: '1px solid var(--glass-border)' }}>
+                <div style={{ fontSize: '40px', marginBottom: '20px' }}>{feat.icon}</div>
+                <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '10px' }}>{feat.title}</h3>
+                <p style={{ color: 'var(--text-muted)', lineHeight: '1.6' }}>{feat.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* POPULAR GIGS MARQUEE / SHOWCASE */}
-      <section style={{ width: '100%', padding: '80px 0', background: 'linear-gradient(to bottom, transparent, rgba(99,102,241,0.05), transparent)' }}>
+      <section style={{ width: '100%', padding: '100px 0' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
-          <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '40px', textAlign: 'center' }}>Trending <span style={{ color: 'var(--aurora-secondary)' }}>Services</span></h2>
+          <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+            <h2 style={{ fontSize: '36px', fontWeight: '800' }}>Trending <span className="aurora-text">Services</span></h2>
+            <p style={{ color: 'var(--text-muted)', marginTop: '10px' }}>Hand-picked projects that are making waves.</p>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
             {popularGigs.map((gig, i) => (
-              <div key={i} className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
+              <div key={i} className="glass-card" style={{ padding: '0', overflow: 'hidden', border: 'none' }}>
                 <div style={{
-                  height: '220px', width: '100%',
+                  height: '240px', width: '100%',
                   background: `url(${gig.image}) center/cover`,
                   position: 'relative'
                 }}>
@@ -141,10 +171,10 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <div style={{ padding: '25px' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '10px' }}>{gig.title}</h3>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
-                    <div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Starting at</div>
-                    <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--aurora-primary)' }}>${gig.price}</div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '10px', height: '54px', overflow: 'hidden' }}>{gig.title}</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--glass-border)' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Starting at</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--text-main)' }}>${gig.price}</div>
                   </div>
                 </div>
               </div>
@@ -153,11 +183,48 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* TESTIMONIALS */}
+      <section style={{ width: '100%', padding: '100px 20px', background: 'var(--bg-accent)', borderTop: '1px solid var(--glass-border)', borderBottom: '1px solid var(--glass-border)' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '60px' }}>What People Say</h2>
+          <div className="glass-card" style={{ padding: '60px', textAlign: 'center', position: 'relative' }}>
+            <div style={{ fontSize: '60px', color: 'var(--aurora-primary)', lineHeight: '0.5', marginBottom: '30px', opacity: 0.3 }}>"</div>
+            <p style={{ fontSize: '24px', fontWeight: '500', lineHeight: '1.6', marginBottom: '30px', fontStyle: 'italic' }}>
+              Zervix has transformed how we hire. The quality of talent is unmatched, and the platform makes collaboration effortless. A game changer.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px' }}>
+              <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#333' }} />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: '700' }}>Sarah Jenkins</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>CTO, TechFlow</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section style={{ width: '100%', padding: '100px 20px' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '40px', textAlign: 'center' }}>Frequently Asked Questions</h2>
+          {[
+            { q: 'How does payment work?', a: 'We hold your payment securely in escrow efficiently until the work is approved.' },
+            { q: 'Can I get a refund?', a: 'Yes, if the work does not meet the agreed requirements you are entitled to a refund.' },
+            { q: 'Is there a service fee?', a: 'We charge a small 5% fee on all completed transactions to maintain the platform.' }
+          ].map((item, i) => (
+            <div key={i} style={{ marginBottom: '20px', padding: '25px', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+              <div style={{ fontWeight: '700', fontSize: '18px', marginBottom: '10px' }}>{item.q}</div>
+              <div style={{ color: 'var(--text-muted)', lineHeight: '1.5' }}>{item.a}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* CALL TO ACTION */}
       <section style={{ padding: '100px 20px', textAlign: 'center', position: 'relative', width: '100%' }}>
         <div style={{
           maxWidth: '900px', margin: '0 auto', padding: '60px',
-          borderRadius: '40px', background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))',
+          borderRadius: '40px', background: 'linear-gradient(135deg, rgba(82, 64, 148, 0.2), rgba(32, 130, 166, 0.2))',
           border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)'
         }}>
           <h2 style={{ fontSize: '40px', fontWeight: '800', marginBottom: '20px' }}>Ready to Scale?</h2>
