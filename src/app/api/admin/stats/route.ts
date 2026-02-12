@@ -1,30 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
     try {
-        // TODO: specific admin auth check here (skipping for MVP/demo simplicity, assuming accessible primarily by authorized users or protected by middleware)
+        const [usersCount, gigsCount, ordersCount, totalRevenueResult] = await Promise.all([
+            prisma.user.count(),
+            prisma.gig.count(),
+            prisma.order.count(),
+            prisma.order.aggregate({
+                where: { status: 'COMPLETED' },
+                _sum: { total: true }
+            })
+        ]);
 
-        const db = getDb();
+        const recentOrders = await prisma.order.findMany({
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                buyer: {
+                    select: { name: true }
+                }
+            }
+        });
 
-        const usersCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as any;
-        const gigsCount = db.prepare('SELECT COUNT(*) as count FROM gigs').get() as any;
-        const ordersCount = db.prepare('SELECT COUNT(*) as count FROM orders').get() as any;
-        const totalRevenue = db.prepare("SELECT SUM(total) as total FROM orders WHERE status = 'COMPLETED'").get() as any;
-
-        const recentOrders = db.prepare(`
-            SELECT o.id, o.total, o.status, o.createdAt, u.name as buyerName 
-            FROM orders o
-            JOIN users u ON o.buyerId = u.id
-            ORDER BY o.createdAt DESC LIMIT 5
-        `).all();
+        const formattedOrders = recentOrders.map((o: any) => ({
+            id: o.id,
+            total: o.total,
+            status: o.status,
+            createdAt: o.createdAt,
+            buyerName: o.buyer.name
+        }));
 
         return NextResponse.json({
-            users: usersCount.count,
-            gigs: gigsCount.count,
-            orders: ordersCount.count,
-            revenue: totalRevenue.total || 0,
-            recentOrders
+            users: usersCount,
+            gigs: gigsCount,
+            orders: ordersCount,
+            revenue: totalRevenueResult._sum.total || 0,
+            recentOrders: formattedOrders
         });
 
     } catch (error: unknown) {

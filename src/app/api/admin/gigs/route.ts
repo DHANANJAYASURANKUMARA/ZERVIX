@@ -1,15 +1,25 @@
 import { NextResponse } from 'next/server';
-import getDb from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
     try {
-        const db = getDb();
-        const gigs = db.prepare(`
-      SELECT g.id, g.title, g.category, g.price, g.status, g.createdAt, u.name as sellerName
-      FROM gigs g JOIN users u ON g.sellerId = u.id
-      ORDER BY g.createdAt DESC
-    `).all();
-        return NextResponse.json({ gigs });
+        const gigs = await prisma.gig.findMany({
+            include: {
+                seller: {
+                    select: { name: true }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        const formattedGigs = gigs.map((g: any) => ({
+            ...g,
+            sellerName: g.seller.name
+        }));
+
+        return NextResponse.json({ gigs: formattedGigs });
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : 'Unknown';
         return NextResponse.json({ error: msg }, { status: 500 });

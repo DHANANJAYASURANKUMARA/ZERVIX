@@ -1,46 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb, { generateId } from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { requestId, sellerId, price, deliveryTime, message } = body;
+        const { requestId, sellerId, price, deliveryDays, description } = body;
 
         if (!requestId || !sellerId || !price) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const db = getDb();
-
         // Get request details to find buyer
-        const buyerRequest = db.prepare('SELECT * FROM buyer_requests WHERE id = ?').get(requestId) as any;
+        const buyerRequest = await prisma.buyerRequest.findUnique({
+            where: { id: requestId }
+        });
+
         if (!buyerRequest) return NextResponse.json({ error: 'Request not found' }, { status: 404 });
 
-        const offerId = generateId();
+        const result = await prisma.$transaction([
+            // 1. Create Offer Record
+            prisma.customOffer.create({
+                data: {
+                    requestId,
+                    sellerId,
+                    buyerId: buyerRequest.buyerId,
+                    price: parseFloat(price),
+                    deliveryDays: deliveryDays ? parseInt(deliveryDays) : 7,
+                    description: description || 'Custom Offer',
+                    status: 'PENDING'
+                }
+            }),
+            // 2. Notify Buyer
+            prisma.notification.create({
+                data: {
+                    userId: buyerRequest.buyerId,
+                    type: 'OFFER',
+                    title: 'New Offer Received',
+                    message: `New offer of $${price} for your request`,
+                    link: `/inbox` // Or specific link if handled
+                }
+            }),
+            // 3. Increment offer count
+            prisma.buyerRequest.update({
+                where: { id: requestId },
+                data: { offersCount: { increment: 1 } }
+            })
+        ]);
 
-        // 1. Create Offer Record (db.ts update needed for offers table? using custom_offers for now if exists or msg)
-        // Wait, I didn't verify existing tables for offers. 
-        // I'll stick to creating a Message with special type 'OFFER' and metadata for now, 
-        // or insert into `custom_offers` if I added it in Phase 1. 
-        // Checking schema check: I added `CustomOffer` model in Phase 1.
-
-        db.prepare(`
-            INSERT INTO custom_offers (id, requestId, sellerId, buyerId, price, deliveryTime, message, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
-        `).run(offerId, requestId, sellerId, buyerRequest.userId, price, deliveryTime, message);
-
-        // 2. Notify Buyer (via notification)
-        db.prepare('INSERT INTO notifications (id, userId, type, message, link) VALUES (?, ?, ?, ?, ?)').run(
-            generateId(), buyerRequest.userId, 'OFFER', `New offer of $${price} for your request`, `/inbox?offer=${offerId}`
-        );
-
-        // 3. Increment offer count on request
-        // (db schema might not have count column, ignoring for now)
-
-        return NextResponse.json({ success: true, id: offerId });
+        return NextResponse.json({ success: true, id: result[0].id });
 
     } catch (error: unknown) {
-        // console.error(error);
         const message = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: message }, { status: 500 });
     }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb, { generateId } from '@/lib/db';
+import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
@@ -10,26 +10,33 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
         }
 
-        const db = getDb();
+        const existing = await prisma.user.findUnique({
+            where: { email },
+            select: { id: true }
+        });
 
-        const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
         if (existing) {
             return NextResponse.json({ error: 'User already exists' }, { status: 409 });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const id = generateId();
 
-        db.prepare(
-            'INSERT INTO users (id, name, email, password, isSeller, role) VALUES (?, ?, ?, ?, ?, ?)'
-        ).run(id, name || '', email, hashedPassword, isSeller ? 1 : 0, isSeller ? 'SELLER' : 'BUYER');
+        const user = await prisma.user.create({
+            data: {
+                name: name || '',
+                email,
+                password: hashedPassword,
+                isSeller: !!isSeller,
+                role: isSeller ? 'SELLER' : 'BUYER'
+            }
+        });
 
         return NextResponse.json({
-            id,
-            name,
-            email,
-            isSeller: !!isSeller,
-            role: isSeller ? 'SELLER' : 'BUYER'
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            isSeller: user.isSeller,
+            role: user.role
         }, { status: 201 });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';

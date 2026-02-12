@@ -1,37 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const db = getDb();
 
-        const order = db.prepare(`
-            SELECT o.*, g.title as gigTitle, g.image as gigImage,
-                   b.name as buyerName, b.image as buyerImage,
-                   s.name as sellerName, s.image as sellerImage
-            FROM orders o
-            JOIN gigs g ON o.gigId = g.id
-            JOIN users b ON o.buyerId = b.id
-            JOIN users s ON o.sellerId = s.id
-            WHERE o.id = ?
-        `).get(id) as any;
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                gig: {
+                    select: { title: true, image: true }
+                },
+                buyer: {
+                    select: { name: true, image: true }
+                },
+                seller: {
+                    select: { name: true, image: true }
+                },
+                deliveries: {
+                    orderBy: { createdAt: 'desc' }
+                },
+                revisions: {
+                    orderBy: { createdAt: 'desc' }
+                },
+                activityLogs: {
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
+        });
 
         if (!order) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        const deliveries = db.prepare('SELECT * FROM deliveries WHERE orderId = ? ORDER BY createdAt DESC').all(id);
-        const revisions = db.prepare('SELECT * FROM revisions WHERE orderId = ? ORDER BY createdAt DESC').all(id);
-        const activityLog = db.prepare('SELECT * FROM activity_log WHERE orderId = ? ORDER BY createdAt DESC').all(id);
-
-        return NextResponse.json({
+        const formattedOrder = {
             ...order,
+            gigTitle: order.gig.title,
+            gigImage: order.gig.image,
+            buyerName: order.buyer.name,
+            buyerImage: order.buyer.image,
+            sellerName: order.seller.name,
+            sellerImage: order.seller.image,
             requirements: order.requirements ? JSON.parse(order.requirements) : [],
-            deliveries: deliveries.map((d: any) => ({ ...d, files: JSON.parse(d.files || '[]') })),
-            revisions,
-            activityLog
-        });
+            deliveries: order.deliveries.map((d: any) => ({
+                ...d,
+                files: JSON.parse(d.files || '[]')
+            })),
+            revisions: order.revisions,
+            activityLog: order.activityLogs
+        };
+
+        return NextResponse.json(formattedOrder);
 
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -45,18 +64,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         const { id } = await params;
         const body = await request.json();
         const { status } = body;
-        const db = getDb();
 
         if (!status) return NextResponse.json({ error: 'Status required' }, { status: 400 });
 
-        db.prepare('UPDATE orders SET status = ?, updatedAt = datetime("now") WHERE id = ?').run(status, id);
-
-        // Log activity
-        const type = 'STATUS_CHANGE';
-        const message = `Order status updated to ${status}`;
-        db.prepare('INSERT INTO activity_log (id, orderId, type, message) VALUES (?, ?, ?, ?)').run(
-            Math.random().toString(36).substring(7), id, type, message
-        );
+        await prisma.$transaction([
+            prisma.order.update({
+                where: { id },
+                data: { status }
+            }),
+            prisma.activityLog.create({
+                data: {
+                    orderId: id,
+                    type: 'STATUS_CHANGE',
+                    message: `Order status updated to ${status}`
+                }
+            })
+        ]);
 
         return NextResponse.json({ success: true });
 

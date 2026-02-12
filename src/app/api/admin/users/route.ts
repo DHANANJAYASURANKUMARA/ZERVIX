@@ -1,10 +1,22 @@
 import { NextResponse } from 'next/server';
-import getDb from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
     try {
-        const db = getDb();
-        const users = db.prepare('SELECT id, name, email, role, sellerLevel, isSeller, createdAt FROM users ORDER BY createdAt DESC').all();
+        const users = await prisma.user.findMany({
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                sellerLevel: true,
+                isSeller: true,
+                createdAt: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
         return NextResponse.json({ users });
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : 'Unknown';

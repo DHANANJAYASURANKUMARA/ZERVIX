@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb, { generateId } from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
     try {
@@ -10,26 +10,26 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const db = getDb();
+        // Insert message and update conversation in a transaction
+        const message = await prisma.$transaction([
+            prisma.message.create({
+                data: {
+                    conversationId,
+                    senderId,
+                    content,
+                    isRead: false
+                }
+            }),
+            prisma.conversation.update({
+                where: { id: conversationId },
+                data: {
+                    lastMessage: content,
+                    lastMessageAt: new Date()
+                }
+            })
+        ]);
 
-        // Get receiver ID (the other participant)
-        const conversation = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId) as any;
-        if (!conversation) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
-
-        const receiverId = conversation.participant1Id === senderId ? conversation.participant2Id : conversation.participant1Id;
-
-        const messageId = generateId();
-
-        // Insert message
-        db.prepare(`
-            INSERT INTO messages (id, conversationId, senderId, receiverId, content, isRead) 
-            VALUES (?, ?, ?, ?, ?, 0)
-        `).run(messageId, conversationId, senderId, receiverId, content);
-
-        // Update conversation timestamp
-        db.prepare('UPDATE conversations SET updatedAt = datetime("now") WHERE id = ?').run(conversationId);
-
-        return NextResponse.json({ success: true, id: messageId });
+        return NextResponse.json({ success: true, id: message[0].id });
 
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';

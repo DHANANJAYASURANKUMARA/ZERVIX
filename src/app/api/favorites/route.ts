@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb, { generateId } from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
     try {
@@ -8,20 +8,45 @@ export async function GET(request: NextRequest) {
 
         if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
 
-        const db = getDb();
-        const favorites = db.prepare(`
-            SELECT f.*, g.title, g.image, g.price, g.category, 
-                   (SELECT AVG(rating) FROM reviews WHERE gigId = g.id) as avgRating,
-                   (SELECT COUNT(*) FROM reviews WHERE gigId = g.id) as reviewCount,
-                   u.name as sellerName, u.image as sellerImage
-            FROM favorites f
-            JOIN gigs g ON f.gigId = g.id
-            JOIN users u ON g.sellerId = u.id
-            WHERE f.userId = ?
-            ORDER BY f.createdAt DESC
-        `).all(userId);
+        const favorites = await prisma.favorite.findMany({
+            where: { userId },
+            include: {
+                gig: {
+                    include: {
+                        seller: {
+                            select: {
+                                name: true,
+                                image: true
+                            }
+                        },
+                        reviews: {
+                            select: {
+                                rating: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
 
-        return NextResponse.json(favorites);
+        const formattedFavorites = favorites.map((f: any) => {
+            const ratings = f.gig.reviews.map((r: { rating: number }) => r.rating);
+            const avgRating = ratings.length > 0 ? ratings.reduce((a: number, b: number) => a + b, 0) / ratings.length : 0;
+            return {
+                ...f,
+                title: f.gig.title,
+                image: f.gig.image,
+                price: f.gig.price,
+                category: f.gig.category,
+                avgRating,
+                reviewCount: f.gig.reviews.length,
+                sellerName: f.gig.seller.name,
+                sellerImage: f.gig.seller.image
+            };
+        });
+
+        return NextResponse.json(formattedFavorites);
 
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
@@ -36,18 +61,24 @@ export async function POST(request: NextRequest) {
 
         if (!userId || !gigId) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
-        const db = getDb();
-
         // Check if exists
-        const existing = db.prepare('SELECT * FROM favorites WHERE userId = ? AND gigId = ?').get(userId, gigId);
+        const existing = await prisma.favorite.findUnique({
+            where: {
+                userId_gigId: { userId, gigId }
+            }
+        });
 
         if (existing) {
-            db.prepare('DELETE FROM favorites WHERE userId = ? AND gigId = ?').run(userId, gigId);
+            await prisma.favorite.delete({
+                where: {
+                    userId_gigId: { userId, gigId }
+                }
+            });
             return NextResponse.json({ action: 'removed' });
         } else {
-            const id = generateId();
-            db.prepare('INSERT INTO favorites (id, userId, gigId) VALUES (?, ?, ?)').run(id, userId, gigId);
-            // Notify seller? (Maybe later)
+            await prisma.favorite.create({
+                data: { userId, gigId }
+            });
             return NextResponse.json({ action: 'added' });
         }
 

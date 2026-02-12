@@ -1,32 +1,56 @@
-import getDb from '@/lib/db';
+import prisma from '@/lib/prisma';
 
-export function calculateSellerLevel(userId: string) {
-    const db = getDb();
-
+export async function calculateSellerLevel(userId: string) {
     // Get stats
-    const stats = db.prepare(`
-        SELECT 
-            (SELECT COUNT(*) FROM orders WHERE sellerId = ? AND status = 'COMPLETED') as completedOrders,
-            (SELECT AVG(rating) FROM reviews r JOIN gigs g ON r.gigId = g.id WHERE g.sellerId = ?) as avgRating,
-            (SELECT SUM(total) FROM orders WHERE sellerId = ? AND status = 'COMPLETED') as totalEarnings
-    `).get(userId, userId, userId) as any;
+    const completedOrders = await prisma.order.count({
+        where: {
+            sellerId: userId,
+            status: 'COMPLETED'
+        }
+    });
 
-    const { completedOrders, avgRating, totalEarnings } = stats;
-    const rating = avgRating || 0;
-    const earnings = totalEarnings || 0;
+    const reviews = await prisma.review.findMany({
+        where: {
+            gig: {
+                sellerId: userId
+            }
+        },
+        select: {
+            rating: true
+        }
+    });
+
+    const avgRating = reviews.length > 0
+        ? reviews.reduce((acc: number, curr: { rating: number }) => acc + curr.rating, 0) / reviews.length
+        : 0;
+
+    const earningsResult = await prisma.order.aggregate({
+        where: {
+            sellerId: userId,
+            status: 'COMPLETED'
+        },
+        _sum: {
+            total: true
+        }
+    });
+
+    const earnings = earningsResult._sum.total || 0;
 
     let level = 'New Seller';
 
-    if (completedOrders >= 50 && rating >= 4.8 && earnings >= 2000) {
+    if (completedOrders >= 50 && avgRating >= 4.8 && earnings >= 2000) {
         level = 'Top Rated';
-    } else if (completedOrders >= 20 && rating >= 4.5 && earnings >= 500) {
+    } else if (completedOrders >= 20 && avgRating >= 4.5 && earnings >= 500) {
         level = 'Level 2';
-    } else if (completedOrders >= 5 && rating >= 4.0 && earnings >= 100) {
+    } else if (completedOrders >= 5 && avgRating >= 4.0 && earnings >= 100) {
         level = 'Level 1';
     }
 
     // Update user record
-    db.prepare('UPDATE users SET sellerLevel = ? WHERE id = ?').run(level, userId);
+    await prisma.user.update({
+        where: { id: userId },
+        data: { sellerLevel: level }
+    });
 
     return level;
 }

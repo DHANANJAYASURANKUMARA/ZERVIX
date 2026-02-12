@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb, { generateId } from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 // GET all notifications
 export async function GET(request: NextRequest) {
@@ -9,13 +9,11 @@ export async function GET(request: NextRequest) {
 
         if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
 
-        const db = getDb();
-        const notifications = db.prepare(`
-            SELECT * FROM notifications 
-            WHERE userId = ? 
-            ORDER BY createdAt DESC
-            LIMIT 50
-        `).all(userId);
+        const notifications = await prisma.notification.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
 
         return NextResponse.json(notifications);
 
@@ -33,14 +31,20 @@ export async function PATCH(request: NextRequest) {
 
         if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
 
-        const db = getDb();
-
         if (notificationIds && Array.isArray(notificationIds) && notificationIds.length > 0) {
-            const placeholders = notificationIds.map(() => '?').join(',');
-            db.prepare(`UPDATE notifications SET isRead = 1 WHERE userId = ? AND id IN (${placeholders})`).run(userId, ...notificationIds);
+            await prisma.notification.updateMany({
+                where: {
+                    userId,
+                    id: { in: notificationIds }
+                },
+                data: { isRead: true }
+            });
         } else {
             // Mark all
-            db.prepare('UPDATE notifications SET isRead = 1 WHERE userId = ?').run(userId);
+            await prisma.notification.updateMany({
+                where: { userId },
+                data: { isRead: true }
+            });
         }
 
         return NextResponse.json({ success: true });

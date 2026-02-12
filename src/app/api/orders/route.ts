@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb, { generateId } from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 // POST create order
 export async function POST(request: NextRequest) {
@@ -10,14 +10,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const db = getDb();
-        const id = generateId();
+        const order = await prisma.order.create({
+            data: {
+                buyerId,
+                gigId,
+                total,
+                status: 'PENDING'
+            }
+        });
 
-        db.prepare(
-            'INSERT INTO orders (id, buyerId, gigId, total) VALUES (?, ?, ?, ?)'
-        ).run(id, buyerId, gigId, total);
-
-        return NextResponse.json({ id, status: 'PENDING', total }, { status: 201 });
+        return NextResponse.json({ id: order.id, status: order.status, total: order.total }, { status: 201 });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: message }, { status: 500 });
@@ -34,16 +36,32 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'userId required' }, { status: 400 });
         }
 
-        const db = getDb();
-        const orders = db.prepare(`
-      SELECT o.*, g.title as gigTitle, g.image as gigImage, g.category
-      FROM orders o
-      JOIN gigs g ON o.gigId = g.id
-      WHERE o.buyerId = ?
-      ORDER BY o.createdAt DESC
-    `).all(userId);
+        const orders = await prisma.order.findMany({
+            where: {
+                buyerId: userId
+            },
+            include: {
+                gig: {
+                    select: {
+                        title: true,
+                        image: true,
+                        category: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
 
-        return NextResponse.json(orders);
+        const formattedOrders = orders.map((o: any) => ({
+            ...o,
+            gigTitle: o.gig.title,
+            gigImage: o.gig.image,
+            category: o.gig.category
+        }));
+
+        return NextResponse.json(formattedOrders);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: message }, { status: 500 });

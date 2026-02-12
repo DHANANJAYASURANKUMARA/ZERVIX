@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb from '@/lib/db';
+import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
@@ -10,17 +10,15 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
         }
 
-        const db = getDb();
-
-        const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as {
-            id: string; name: string; email: string; password: string; isSeller: number; role: string; image: string;
-        } | undefined;
+        const user = await prisma.user.findUnique({
+            where: { email }
+        });
 
         if (!user) {
             return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
         }
 
-        const isValid = await bcrypt.compare(password, user.password);
+        const isValid = await bcrypt.compare(password, user.password || '');
         if (!isValid) {
             return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
         }
@@ -30,7 +28,7 @@ export async function POST(request: NextRequest) {
             id: user.id,
             name: user.name,
             email: user.email,
-            isSeller: !!user.isSeller,
+            isSeller: user.isSeller,
             role: user.role,
             image: user.image
         });

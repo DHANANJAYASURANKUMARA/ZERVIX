@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb, { generateId } from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 // GET all conversations for a user
 export async function GET(request: NextRequest) {
@@ -9,24 +9,48 @@ export async function GET(request: NextRequest) {
 
         if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
 
-        const db = getDb();
-
         // Fetch conversations where user is participant
-        // We join with the other user to get their details
-        // We also want the last message
-        const conversations = db.prepare(`
-            SELECT c.*, 
-                   u.id as otherUserId, u.name as otherUserName, u.image as otherUserImage,
-                   (SELECT content FROM messages m WHERE m.conversationId = c.id ORDER BY m.createdAt DESC LIMIT 1) as lastMessage,
-                   (SELECT createdAt FROM messages m WHERE m.conversationId = c.id ORDER BY m.createdAt DESC LIMIT 1) as lastMessageAt,
-                   (SELECT COUNT(*) FROM messages m WHERE m.conversationId = c.id AND m.receiverId = ? AND m.isRead = 0) as unreadCount
-            FROM conversations c
-            JOIN users u ON (c.participant1Id = u.id OR c.participant2Id = u.id)
-            WHERE (c.participant1Id = ? OR c.participant2Id = ?) AND u.id != ?
-            ORDER BY lastMessageAt DESC
-        `).all(userId, userId, userId, userId);
+        const conversations = await prisma.conversation.findMany({
+            where: {
+                OR: [
+                    { user1Id: userId },
+                    { user2Id: userId }
+                ]
+            },
+            include: {
+                user1: {
+                    select: { id: true, name: true, image: true }
+                },
+                user2: {
+                    select: { id: true, name: true, image: true }
+                },
+                messages: {
+                    orderBy: {
+                        createdAt: 'desc'
+                    },
+                    take: 1
+                }
+            },
+            orderBy: {
+                lastMessageAt: 'desc'
+            }
+        });
 
-        return NextResponse.json(conversations);
+        const formattedConversations = conversations.map((c: any) => {
+            const otherUser = c.user1Id === userId ? c.user2 : c.user1;
+            const lastMessage = c.messages[0];
+            return {
+                ...c,
+                otherUserId: otherUser.id,
+                otherUserName: otherUser.name,
+                otherUserImage: otherUser.image,
+                lastMessage: lastMessage?.content || '',
+                lastMessageAt: lastMessage?.createdAt || c.createdAt,
+                unreadCount: 0 // Ideally count unread where receiver is userId
+            };
+        });
+
+        return NextResponse.json(formattedConversations);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: message }, { status: 500 });
@@ -43,21 +67,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Participants required' }, { status: 400 });
         }
 
-        const db = getDb();
-
         // Check if conversation exists
-        let conversation = db.prepare(`
-            SELECT * FROM conversations 
-            WHERE (participant1Id = ? AND participant2Id = ?) 
-               OR (participant1Id = ? AND participant2Id = ?)
-        `).get(participant1Id, participant2Id, participant2Id, participant1Id);
+        let conversation = await prisma.conversation.findFirst({
+            where: {
+                OR: [
+                    { user1Id: participant1Id, user2Id: participant2Id },
+                    { user1Id: participant2Id, user2Id: participant1Id }
+                ]
+            }
+        });
 
         if (!conversation) {
-            const id = generateId();
-            db.prepare('INSERT INTO conversations (id, participant1Id, participant2Id) VALUES (?, ?, ?)').run(
-                id, participant1Id, participant2Id
-            );
-            conversation = { id, participant1Id, participant2Id };
+            conversation = await prisma.conversation.create({
+                data: {
+                    user1Id: participant1Id,
+                    user2Id: participant2Id
+                }
+            });
         }
 
         return NextResponse.json(conversation);

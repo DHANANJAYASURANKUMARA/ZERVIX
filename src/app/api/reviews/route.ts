@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getDb, { generateId } from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
     try {
@@ -10,40 +10,39 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const db = getDb();
-        const reviewId = generateId();
+        const result = await prisma.$transaction(async (tx: any) => {
+            // 1. Create Review
+            const review = await tx.review.create({
+                data: {
+                    gigId,
+                    orderId: orderId || null,
+                    userId,
+                    rating,
+                    comment: comment || '',
+                    communicationRating: communicationRating || rating,
+                    serviceRating: serviceRating || rating,
+                    recommendRating: recommendRating || rating
+                }
+            });
 
-        // 1. Create Review
-        db.prepare(`
-            INSERT INTO reviews (
-                id, gigId, orderId, userId, rating, comment, 
-                communicationRating, serviceRating, recommendRating
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            reviewId, gigId, orderId || null, userId, rating, comment || '',
-            communicationRating || rating, serviceRating || rating, recommendRating || rating
-        );
+            // 2. Log Activity if Order ID present
+            if (orderId) {
+                await tx.activityLog.create({
+                    data: {
+                        orderId,
+                        type: 'REVIEW',
+                        message: `Buyer left a ${rating}-star review`,
+                        userId
+                    }
+                });
+            }
 
-        // 2. Update Gig Rating Stats
-        // We recalculate average for accuracy
-        const gigStats = db.prepare(`
-            SELECT COUNT(*) as count, AVG(rating) as avg 
-            FROM reviews WHERE gigId = ?
-        `).get(gigId) as any;
+            return review;
+        });
 
-        db.prepare('UPDATE gigs SET rating = ?, reviewsCount = ? WHERE id = ?').run(gigStats.avg, gigStats.count, gigId);
-
-        // 3. Log Activity if Order ID present
-        if (orderId) {
-            db.prepare('INSERT INTO activity_log (id, orderId, type, message) VALUES (?, ?, ?, ?)').run(
-                generateId(), orderId, 'REVIEW', `Buyer left a ${rating}-star review`
-            );
-        }
-
-        return NextResponse.json({ success: true, id: reviewId });
+        return NextResponse.json({ success: true, id: result.id });
 
     } catch (error: unknown) {
-        // console.error(error);
         const message = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: message }, { status: 500 });
     }
